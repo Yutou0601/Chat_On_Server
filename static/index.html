@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>Rust Chat Demo</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body.login {background:url("lr_pic.jpg") center/cover fixed;}
+  body.chat  {background:url("room_pic.jpg") center/cover fixed;}
+  body::before{content:"";position:fixed;inset:0;backdrop-filter:blur(4px) brightness(.65);background:rgba(0,0,0,.4);z-index:-1;}
+  #chat::-webkit-scrollbar{display:none}
+</style>
+</head>
+<body class="login flex flex-col items-center pt-10 min-h-screen text-white">
+
+<!-- 登入 -->
+<div id="auth" class="w-80 space-y-3 bg-white/10 rounded-xl p-6 shadow-lg">
+  <h2 class="text-center text-2xl font-bold mb-2">登入聊天室</h2>
+  <input id="user" class="w-full p-2 rounded bg-white/80 text-gray-900" placeholder="使用者名稱">
+  <input id="pass" type="password" class="w-full p-2 rounded bg-white/80 text-gray-900" placeholder="密碼">
+  <div class="flex items-center space-x-2">
+    <select id="room" class="flex-1 p-2 rounded bg-white/80 text-gray-900">
+      <option value="lobby">lobby</option><option value="tech">tech</option><option value="random">random</option>
+    </select>
+    <button class="flex-1 px-3 py-2 rounded bg-sky-600 hover:bg-sky-700" onclick="register()">Register</button>
+    <button class="flex-1 px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-700" onclick="login()">Login</button>
+  </div>
+</div>
+
+<!-- 聊天室 -->
+<div id="chatbox" class="hidden w-full max-w-xl mx-auto mt-6 space-y-3">
+  <div class="flex justify-between items-center">
+    <h2 class="text-xl font-bold">Room: <span id="roomName"></span></h2>
+    <button onclick="logout()" class="px-3 py-1 rounded bg-red-600 hover:bg-red-700">Logout</button>
+  </div>
+
+  <div id="chat" class="h-80 overflow-y-auto px-3 py-2 bg-black/30 rounded-lg space-y-1 text-sm"></div>
+
+  <div class="flex space-x-2">
+    <input id="msg" class="flex-1 p-2 rounded bg-white/90 text-gray-900"
+           placeholder="輸入訊息後 Enter 或 Send" onkeydown="if(event.key==='Enter')sendMsg()">
+    <button class="px-4 rounded bg-green-600 hover:bg-green-700" onclick="sendMsg()">Send</button>
+  </div>
+
+  <div class="bg-black/30 rounded-lg p-3">
+    <h3 class="font-semibold mb-1">Online Users</h3>
+    <ul id="userlist" class="text-xs space-y-0.5"></ul>
+  </div>
+</div>
+
+<script>
+let token="", ws=null, myName="";
+const chatEl=document.getElementById('chat'), userListEl=document.getElementById('userlist');
+
+/* ==== API ==== */
+function api(path, body, expectJson=true){
+  return fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+        .then(r=>{if(!r.ok)throw new Error(r.status);return expectJson?r.json():r});
+}
+
+/* ==== Auth ==== */
+function register(){
+  if(!user.value||!pass.value) return alert("請輸入帳號密碼");
+  api("/api/register",{username:user.value,password:pass.value},false)
+     .then(()=>alert("註冊成功，請登入")).catch(()=>alert("Register failed"));
+}
+function login(){
+  if(!user.value||!pass.value) return alert("請輸入帳號密碼");
+  api("/api/login",{username:user.value,password:pass.value})
+    .then(j=>{
+      token=j.token; myName=user.value.trim();
+      connectWS(room.value);
+      document.body.classList.replace("login","chat");
+      auth.classList.add("hidden"); chatbox.classList.remove("hidden");
+      roomName.textContent=room.value;
+    }).catch(()=>alert("Login failed"));
+}
+function logout(){
+  ws?.close(); chatEl.innerHTML=""; userListEl.innerHTML="";
+  document.body.classList.replace("chat","login");
+  auth.classList.remove("hidden"); chatbox.classList.add("hidden");
+}
+
+/* ==== WebSocket ==== */
+function connectWS(room){
+  const proto=location.protocol==="https:"?"wss":"ws";
+  ws=new WebSocket(`${proto}://${location.host}/ws/chat?room=${room}&token=${token}`);
+  ws.onopen =()=>appendSys("已連線");
+  ws.onclose=()=>appendSys("連線中斷");
+  ws.onmessage=ev=>{
+    try{
+      const d=JSON.parse(ev.data);
+      if(d.type==="users"){renderUsers(d.list);return;}
+      if(d.type==="chat"){appendChat(d.name,d.text);return;}
+    }catch{}
+  };
+}
+
+/* ==== Send ==== */
+function sendMsg(){
+  const txt=msg.value.trim(); if(!txt||!ws||ws.readyState!==1) return;
+  ws.send(txt); msg.value="";
+}
+
+/* ==== UI ==== */
+function appendSys(t){
+  const div=document.createElement("div");
+  div.className="text-center text-gray-400"; div.textContent="*** "+t;
+  chatEl.appendChild(div); chatEl.scrollTop=chatEl.scrollHeight;
+}
+function appendChat(sender,text){
+  const div=document.createElement("div");
+  const isMe=sender===myName;
+  if(isMe){
+    div.className="text-right";
+    div.innerHTML=`<span class="inline-block bg-green-500 text-white rounded-lg px-2 py-1">${text}</span>`;
+  }else{
+    div.className="text-left";
+    div.innerHTML=`<span class="text-indigo-300 mr-1">${sender}</span>`+
+                  `<span class="inline-block bg-indigo-500/30 backdrop-blur-sm rounded-lg px-2 py-1">${text}</span>`;
+  }
+  chatEl.appendChild(div); chatEl.scrollTop=chatEl.scrollHeight;
+}
+function renderUsers(arr){
+  userListEl.innerHTML="";
+  arr.forEach(n=>{
+    const li=document.createElement("li"); li.textContent=n; userListEl.appendChild(li);
+  });
+}
+</script>
+</body>
+</html>
