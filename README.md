@@ -1,4 +1,4 @@
-# Chat Server (Fixed)
+# Chat Server
 
 ## Build & Run
 
@@ -18,5 +18,3 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocola
 ngrok http <port>
 ```
 ###
-
-Then check REST endpoints.
