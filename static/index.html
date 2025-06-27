@@ -14,6 +14,17 @@
 </head>
 <body class="login flex flex-col items-center pt-10 min-h-screen text-white">
 
+<!-- === 背景音樂 & 訊息提示音 =========================================== -->
+<audio id="bgm" src="bgm.mp3" preload="auto" loop></audio>
+<audio id="ding" src="mes.wav" preload="auto"></audio>
+<script>
+document.addEventListener("click",()=>{        // 行動瀏覽器互動後才允許播放
+  const a=document.getElementById("bgm");
+  if(a && a.paused){ a.volume=0.3; a.play().catch(()=>{}); }
+},{once:true});
+</script>
+<!-- ================================================================== -->
+
 <!-- 登入 -->
 <div id="auth" class="w-80 space-y-3 bg-white/10 rounded-xl p-6 shadow-lg">
   <h2 class="text-center text-2xl font-bold mb-2">登入聊天室</h2>
@@ -51,13 +62,13 @@
 
 <script>
 let token="", ws=null, myName="";
-const chatEl=document.getElementById('chat'), userListEl=document.getElementById('userlist');
+const chatEl=document.getElementById('chat'),
+      userListEl=document.getElementById('userlist'),
+      ding=document.getElementById('ding');
 
 /* ==== API ==== */
-function api(path, body, expectJson=true){
-  return fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
-        .then(r=>{if(!r.ok)throw new Error(r.status);return expectJson?r.json():r});
-}
+function api(p,b,j=true){return fetch(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)})
+        .then(r=>{if(!r.ok)throw new Error(r.status);return j?r.json():r});}
 
 /* ==== Auth ==== */
 function register(){
@@ -92,7 +103,7 @@ function connectWS(room){
     try{
       const d=JSON.parse(ev.data);
       if(d.type==="users"){renderUsers(d.list);return;}
-      if(d.type==="chat"){appendChat(d.name,d.text);return;}
+      if(d.type==="chat"){appendChat(d.name,d.text,true);return;}
     }catch{}
   };
 }
@@ -109,22 +120,22 @@ function appendSys(t){
   div.className="text-center text-gray-400"; div.textContent="*** "+t;
   chatEl.appendChild(div); chatEl.scrollTop=chatEl.scrollHeight;
 }
-function appendChat(sender,text){
+function appendChat(sender,text,fromServer=false){
   const div=document.createElement("div");
   const isMe=sender===myName;
   if(isMe){
     div.className="text-right";
-    div.innerHTML=`<span class="inline-block bg-green-500 text-white rounded-lg px-2 py-1">${text}</span>`;
+    div.innerHTML=`<span class="inline-block bg-green-500 text-white rounded-lg px-2 py-1 max-w-[70%] break-words">${text}</span>`;
   }else{
     div.className="text-left";
     div.innerHTML=`<span class="text-indigo-300 mr-1">${sender}</span>`+
-                  `<span class="inline-block bg-indigo-500/30 backdrop-blur-sm rounded-lg px-2 py-1">${text}</span>`;
+                  `<span class="inline-block bg-indigo-500/30 backdrop-blur-sm rounded-lg px-2 py-1 max-w-[70%] break-words">${text}</span>`;
+    if(fromServer && ding) ding.volume=1; ding.play().catch(()=>{});   // 播放提示音
   }
   chatEl.appendChild(div); chatEl.scrollTop=chatEl.scrollHeight;
 }
 function renderUsers(arr){
-  userListEl.innerHTML="";
-  arr.forEach(n=>{
+  userListEl.innerHTML=""; arr.forEach(n=>{
     const li=document.createElement("li"); li.textContent=n; userListEl.appendChild(li);
   });
 }
