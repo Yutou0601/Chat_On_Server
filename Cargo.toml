@@ -3,21 +3,22 @@ name    = "chat_server"
 version = "0.1.1"
 edition = "2021"
 
-# ──────────── 核心 ────────────
 [dependencies]
 tokio          = { version = "1.37", features = ["full"] }
+
+# ★ 保證只有 0.7 版
 axum           = { version = "0.7",  features = ["ws", "multipart"] }
-axum-extra     = { version = "0.9",  features = ["multipart", "query"] } # 0.9 與 axum 0.7 相容
+axum-extra     = { version = "0.10", features = ["multipart"] }   # 0.10 對應 axum 0.7
+
 tower-http     = { version = "0.5",  features = ["fs", "limit"] }
 
-# ──────────── 通用工具 ─────────
 serde          = { version = "1", features = ["derive"] }
 serde_json     = "1"
+jsonwebtoken   = "9"
+sqlx           = { version = "0.7", features = ["sqlite", "runtime-tokio-rustls"] }
 uuid           = { version = "1", features = ["v4"] }
 rand           = "0.8"
 chrono         = { version = "0.4", features = ["serde"] }
-jsonwebtoken   = "9"
-sqlx           = { version = "0.7", features = ["sqlite", "runtime-tokio-rustls"] }
 dotenvy        = "0.15"
 tracing        = "0.1"
 tracing-subscriber = "0.3"
@@ -25,3 +26,5 @@ mime_guess     = "2"
 bytes          = "1"
 futures-util   = "0.3"
 anyhow         = "1"
+thiserror = "1"     # ← 派生錯誤型別
+nanoid    = "0.4"   # ← 產生 16 位鹽值
