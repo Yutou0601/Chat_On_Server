@@ -11,11 +11,13 @@
   body::before{content:"";position:fixed;inset:0;backdrop-filter:blur(4px) brightness(.65);background:rgba(0,0,0,.4);z-index:-1;}
   #chat::-webkit-scrollbar{display:none}
   button.icon{font-size:1.25rem;line-height:1rem}
+  #recInfo.visible   {visibility:visible}
+  #recInfo.invisible {visibility:hidden}
 </style>
 </head>
 <body class="login flex min-h-screen text-white">
 
-<!-- ===== 左側欄：房間 + 設定 ===== -->
+<!-- ===== 左側欄 ===== -->
 <aside id="sidebar" class="hidden chat:flex flex-col w-44 bg-black/40 backdrop-blur p-4 space-y-4">
   <h3 class="font-semibold mb-2">Rooms</h3>
   <nav class="flex flex-col space-y-1">
@@ -23,8 +25,7 @@
     <button class="roomBtn text-left px-2 py-1 rounded hover:bg-white/20" onclick="switchRoom('tech')"># tech</button>
     <button class="roomBtn text-left px-2 py-1 rounded hover:bg-white/20" onclick="switchRoom('random')"># random</button>
   </nav>
-  <button onclick="openSettings()"
-          class="mt-auto px-2 py-1 rounded bg-sky-600 hover:bg-sky-700 flex items-center">
+  <button onclick="openSettings()" class="mt-auto px-2 py-1 rounded bg-sky-600 hover:bg-sky-700 flex items-center">
     ⚙️ <span class="ml-1">Settings</span>
   </button>
 </aside>
@@ -32,14 +33,14 @@
 <!-- ===== 主區 ===== -->
 <div class="flex-1 flex flex-col items-center pt-10">
 
-<!-- === 背景音樂 & 訊息提示音 === -->
-<audio id="bgm"  src="bgm.mp3"  preload="auto" loop></audio>
-<audio id="ding" src="mes.wav"  preload="auto"></audio>
+<!-- 背景 BGM / 訊息提示 -->
+<audio id="bgm"  src="bgm.mp3" preload="auto" loop></audio>
+<audio id="ding" src="mes.wav" preload="auto"></audio>
 <script>
-document.addEventListener("click",()=>{const a=bgm;if(a&&a.paused){a.volume=.3;a.play().catch(()=>{})}},{once:true});
+document.addEventListener("click",()=>{bgm.volume=.3;bgm.play().catch(()=>{})},{once:true});
 </script>
 
-<!-- 登入 -->
+<!-- ===== 登入區 ===== -->
 <div id="auth" class="w-80 space-y-3 bg-white/10 rounded-xl p-6 shadow-lg">
   <h2 class="text-center text-2xl font-bold mb-2">登入聊天室</h2>
   <input id="user" class="w-full p-2 rounded bg-white/80 text-gray-900" placeholder="使用者名稱">
@@ -53,7 +54,7 @@ document.addEventListener("click",()=>{const a=bgm;if(a&&a.paused){a.volume=.3;a
   </div>
 </div>
 
-<!-- 聊天室 -->
+<!-- ===== 聊天室 ===== -->
 <div id="chatbox" class="hidden w-full max-w-xl mx-auto mt-6 space-y-3">
   <div class="flex justify-between items-center">
     <h2 class="text-xl font-bold">Room: <span id="roomName"></span></h2>
@@ -62,14 +63,20 @@ document.addEventListener("click",()=>{const a=bgm;if(a&&a.paused){a.volume=.3;a
 
   <div id="chat" class="h-80 overflow-y-auto px-3 py-2 bg-black/30 rounded-lg space-y-1 text-sm"></div>
 
-  <!-- 輸入 + 上傳 + 錄音 -->
+  <!-- ===== 文字 / 上傳 / 錄音列 ===== -->
   <div class="flex items-center space-x-2">
-    <input id="file" type="file" class="hidden" accept="image/*,video/*,audio/*" onchange="sendFile(this.files[0])">
+    <input id="file" type="file" hidden accept="image/*,video/*,audio/*" onchange="sendFile(this.files[0])">
     <label for="file" class="icon cursor-pointer select-none">📎</label>
-    <button class="icon select-none" id="recBtn"
-            onmousedown="startRec()" onmouseup="stopRec()" ontouchstart="startRec()" ontouchend="stopRec()">🎤</button>
+
+    <button id="recBtn" class="icon select-none" onclick="toggleRec()">🎤</button>
+
+    <div id="recInfo" class="flex items-center space-x-1 invisible">
+      <span class="inline-block w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+      <span id="recTime" class="text-xs tabular-nums">00:00</span>
+    </div>
+
     <input id="msg" class="flex-1 p-2 rounded bg-white/90 text-gray-900"
-           placeholder="輸入訊息後 Enter 或 Send" onkeydown="if(event.key==='Enter')sendMsg()">
+      placeholder="輸入訊息後 Enter 或 Send" onkeydown="if(event.key==='Enter')sendMsg()">
     <button class="px-4 rounded bg-green-600 hover:bg-green-700" onclick="sendMsg()">Send</button>
   </div>
 
@@ -80,29 +87,21 @@ document.addEventListener("click",()=>{const a=bgm;if(a&&a.paused){a.volume=.3;a
 </div>
 </div><!-- /主區 -->
 
-<!-- === Settings Modal === -->
+<!-- ===== Settings Modal ===== -->
 <div id="settings" class="hidden fixed inset-0 flex items-center justify-center bg-black/60">
   <div class="bg-white text-gray-900 rounded-xl p-6 w-80 space-y-4">
     <h2 class="text-lg font-semibold">Settings</h2>
-
-    <div>
-      <label class="block mb-1 font-medium">背景音量</label>
-      <input id="bgVol" type="range" min="0" max="100" class="w-full" oninput="bgm.volume=this.value/100">
-    </div>
-    <div>
-      <label class="block mb-1 font-medium">訊息音量</label>
-      <input id="dingVol" type="range" min="0" max="100" class="w-full" oninput="ding.volume=this.value/100">
-    </div>
-
-    <div>
-      <label class="block mb-1 font-medium">背景圖</label>
+    <div><label class="block mb-1 font-medium">背景音量</label>
+      <input id="bgVol" type="range" min="0" max="100" class="w-full" oninput="bgm.volume=this.value/100"></div>
+    <div><label class="block mb-1 font-medium">訊息音量</label>
+      <input id="dingVol" type="range" min="0" max="100" class="w-full" oninput="ding.volume=this.value/100"></div>
+    <div><label class="block mb-1 font-medium">背景圖</label>
       <div class="flex space-x-2">
         <img src="lr_pic.jpg"   class="w-14 h-10 object-cover cursor-pointer" onclick="setBg('lr_pic.jpg')">
         <img src="room_pic.jpg" class="w-14 h-10 object-cover cursor-pointer" onclick="setBg('room_pic.jpg')">
         <input type="file" accept="image/*" onchange="setBgFile(this.files[0])">
       </div>
     </div>
-
     <button onclick="closeSettings()" class="w-full mt-2 py-1 rounded bg-sky-600 hover:bg-sky-700 text-white">Close</button>
   </div>
 </div>
@@ -111,63 +110,60 @@ document.addEventListener("click",()=>{const a=bgm;if(a&&a.paused){a.volume=.3;a
 let token="", ws=null, myName="", curRoom="lobby";
 const chatEl=chat, userListEl=userlist, dingEl=ding;
 
-/* ========= 工具 ========= */
-const api=(p,b,j=true)=>fetch(p,{method:"POST",body:JSON.stringify(b),headers:{"Content-Type":"application/json"}})
-      .then(r=>{if(!r.ok)throw r;return j?r.json():r});
+/* ---------- 共用工具 ---------- */
+const api=(p,b,j=true)=>fetch(p,{method:"POST",
+  body:JSON.stringify(b),headers:{"Content-Type":"application/json"}})
+  .then(r=>{if(!r.ok)throw r;return j?r.json():r});
 
-/* ========= Auth ========= */
-function register(){ if(!user.value||!pass.value) return alert("缺少帳密");
+/* ---------- Auth ---------- */
+function register(){if(!user.value||!pass.value)return alert("缺少帳密");
   api("/api/register",{username:user.value,password:pass.value},false)
-     .then(()=>alert("註冊成功，請登入")).catch(()=>alert("Register failed")); }
+    .then(()=>alert("註冊成功，請登入")).catch(()=>alert("Register failed"));}
 
-function login(){ if(!user.value||!pass.value) return alert("缺少帳密");
-  api("/api/login",{username:user.value,password:pass.value})
-    .then(j=>{
-      token=j.token; myName=user.value.trim();
-      switchRoom(room.value);
-      document.body.classList.replace("login","chat");
-      sidebar.classList.remove("hidden");
-      auth.classList.add("hidden"); chatbox.classList.remove("hidden");
-    }).catch(()=>alert("Login failed")); }
-
+function login(){
+  if(!user.value||!pass.value) return alert("缺少帳密");
+  api("/api/login",{username:user.value,password:pass.value}).then(j=>{
+    token=j.token; myName=user.value.trim(); switchRoom(room.value);
+    document.body.classList.replace("login","chat");
+    sidebar.classList.remove("hidden"); auth.classList.add("hidden"); chatbox.classList.remove("hidden");
+  }).catch(()=>alert("Login failed"));
+}
 function logout(){
   ws?.close(); chatEl.innerHTML=""; userListEl.innerHTML="";
   document.body.classList.replace("chat","login");
-  auth.classList.remove("hidden"); chatbox.classList.add("hidden");
-  sidebar.classList.add("hidden");
+  auth.classList.remove("hidden"); chatbox.classList.add("hidden"); sidebar.classList.add("hidden");
 }
 
-/* ========= 房間切換 ========= */
+/* ---------- Rooms ---------- */
 function switchRoom(r){
-  if(ws) ws.close();
-  curRoom=r; roomName.textContent=r;
-  [...document.querySelectorAll(".roomBtn")].forEach(b=>b.classList.remove("bg-white/20"));
-  document.querySelector(`.roomBtn[onclick*="${r}"]`)?.classList.add("bg-white/20");
+  ws?.close(); curRoom=r; roomName.textContent=r;
+  document.querySelectorAll(".roomBtn").forEach(b=>b.classList.toggle("bg-white/20",b.textContent.includes(r)));
   connectWS(r);
 }
 
-/* ========= WebSocket ========= */
+/* ---------- WebSocket ---------- */
 function connectWS(room){
   ws=new WebSocket(`${location.protocol==="https:"?"wss":"ws"}://${location.host}/ws/chat?room=${room}&token=${token}`);
   ws.onopen =()=>{chatEl.innerHTML=""; appendSys("已連線")};
   ws.onclose=()=>appendSys("連線中斷");
   ws.onmessage=ev=>{
     let d;try{d=JSON.parse(ev.data);}catch{appendSys(ev.data);return;}
-    if(d.type==="users") return renderUsers(d.list);
-    if(d.type==="text")  return appendChat (d.name,d.text,true);
-    if(d.type==="media") return appendMedia(d.name,d.url,d.mime,true);
+    if(d.type==="users") renderUsers(d.list);
+    else if(d.type==="text")  appendChat (d.name,d.text,true);
+    else if(d.type==="media") appendMedia(d.name,d.url,d.mime,true);
   };
 }
 
-/* ========= 送文字 ========= */
+/* ---------- Send Text ---------- */
 function sendMsg(){
   const txt=msg.value.trim(); if(!txt||!ws||ws.readyState!==1) return;
   ws.send(JSON.stringify({type:"text",text:txt})); msg.value="";
 }
 
-/* ========= 上傳檔案 ========= */
+/* ---------- Upload ---------- */
 async function sendFile(file){
   if(!file) return;
+  if(file.size>100*1024**2) return alert("檔案超過 100 MB，請改用較小影片。");
   const fd=new FormData(); fd.append("file",file);
   const r=await fetch("/api/upload",{method:"POST",body:fd});
   if(!r.ok) return alert("上傳失敗");
@@ -175,54 +171,89 @@ async function sendFile(file){
   ws.send(JSON.stringify({type:"media",mime,url}));
 }
 
-/* ========= 錄音 ========= */
-let rec, chunks=[];
-async function startRec(){
-  const s=await navigator.mediaDevices.getUserMedia({audio:true});
-  rec=new MediaRecorder(s);
-  rec.ondataavailable=e=>chunks.push(e.data);
-  rec.onstop=()=>{ sendFile(new File([new Blob(chunks,{type:"audio/webm"})],"rec.webm",{type:"audio/webm"})); chunks=[]; };
-  rec.start();
-}
-function stopRec(){ rec?.stop(); }
+/* ---------- 錄音 ---------- */
+let mediaRec=null, recTimer=null, recStart=0;
+const MAX_SEC=120, MAX_SIZE=10*1024**2;
 
-/* ========= UI ========= */
-function appendSys(t){
-  const d=document.createElement("div");
-  d.className="text-center text-gray-400"; d.textContent="*** "+t;
-  chatEl.appendChild(d); chatEl.scrollTop=chatEl.scrollHeight;
+async function toggleRec(){
+  if(mediaRec?.state==="recording") stopRec();
+  else startRec();
 }
+async function startRec(){
+  let stream; try{stream=await navigator.mediaDevices.getUserMedia({audio:true});}
+  catch{return alert("無法取得麥克風權限");}
+
+  const mime=MediaRecorder.isTypeSupported("audio/webm")?"audio/webm":
+             MediaRecorder.isTypeSupported("audio/mp4") ?"audio/mp4":
+             MediaRecorder.isTypeSupported("audio/mpeg")?"audio/mpeg":"";
+  mediaRec=new MediaRecorder(stream, mime?{mimeType:mime}:undefined);
+
+  recBtn.disabled=true;
+  recInfo.classList.replace("invisible","visible");
+  recStart=Date.now();
+  recTimer=setInterval(updateRecTime,1000); updateRecTime();
+
+  const blobP=new Promise(res=>{
+    mediaRec.addEventListener("dataavailable",e=>res(e.data),{once:true});
+    mediaRec.addEventListener("stop",()=>clearInterval(recTimer),{once:true});
+  });
+  mediaRec.start();
+  recBtn.disabled=false;
+
+  /* 取得 Blob 後送出 */
+  const blob=await blobP;
+  if(blob.size===0) return appendSys("⚠️ 錄音失敗，請重試");
+  if(blob.size>MAX_SIZE) return alert("錄音檔超過 10 MB，請縮短長度");
+  sendFile(new File([blob],"rec.weba",{type:"audio/webm"}));
+
+  recInfo.classList.replace("visible","invisible");
+  recTime.textContent="00:00";
+  mediaRec=null;
+}
+function stopRec(){ mediaRec?.stop(); }
+function updateRecTime(){
+  const s=Math.floor((Date.now()-recStart)/1000);
+  recTime.textContent=`${String(s/60|0).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  if(s>=MAX_SEC) stopRec();
+}
+
+/* ---------- UI ---------- */
+function appendSys(t){const d=document.createElement("div");
+  d.className="text-center text-gray-400"; d.textContent="*** "+t;
+  chatEl.appendChild(d); chatEl.scrollTop=chatEl.scrollHeight;}
 function appendChat(sender,text,fromSrv){
   const d=document.createElement("div"),me=sender===myName;
   d.className=me?"text-right":"text-left";
   d.innerHTML=me?`<span class="inline-block bg-green-500 text-white rounded-lg px-2 py-1 max-w-[70%] break-words">${text}</span>`
-   :`<span class="text-indigo-300 mr-1">${sender}</span><span class="inline-block bg-indigo-500/30 backdrop-blur-sm rounded-lg px-2 py-1 max-w-[70%] break-words">${text}</span>`;
+  :`<span class="text-indigo-300 mr-1">${sender}</span><span class="inline-block bg-indigo-500/30 backdrop-blur-sm rounded-lg px-2 py-1 max-w-[70%] break-words">${text}</span>`;
   chatEl.appendChild(d); chatEl.scrollTop=chatEl.scrollHeight;
-  if(!me&&fromSrv) dingEl.play().catch(()=>{});
-}
+  if(!me&&fromSrv) dingEl.play().catch(()=>{});}
 function appendMedia(sender,url,mime,fromSrv){
-  const d=document.createElement("div"),me=sender===myName;
-  let tag="";
-  if(mime.startsWith("image/")) tag=`<img src="${url}" class="max-w-[70%] rounded-lg inline-block">`;
-  else if(mime.startsWith("video/")) tag=`<video src="${url}" controls class="max-w-[70%] rounded-lg"></video>`;
-  else if(mime.startsWith("audio/")) tag=`<audio src="${url}" controls></audio>`;
-  else tag=`<a href="${url}" target="_blank" class="underline">${url.split('/').pop()}</a>`;
-  d.className=me?"text-right":"text-left";
-  d.innerHTML=me?tag:`<span class="text-indigo-300 mr-1">${sender}</span>${tag}`;
-  chatEl.appendChild(d); chatEl.scrollTop=chatEl.scrollHeight;
-  if(!me&&fromSrv) dingEl.play().catch(()=>{});
-}
-function renderUsers(arr){
-  userListEl.innerHTML="";
-  arr.forEach(n=>{const li=document.createElement("li");li.textContent=n;userListEl.appendChild(li);});
-}
+  const me=sender===myName,wrap=document.createElement("div");
+  wrap.className=me?"text-right":"text-left";
+  let el;
+  if(mime.startsWith("image/")){
+    el=new Image();el.src=url;el.loading="lazy";el.className="max-w-[70%] rounded-lg inline-block";
+  }else if(mime.startsWith("video/")){
+    el=document.createElement("video");Object.assign(el,{src:url,controls:true,preload:"metadata",className:"max-w-[70%] rounded-lg"});
+  }else if(mime.startsWith("audio/")){
+    el=document.createElement("audio");Object.assign(el,{controls:true,preload:"metadata"});
+    if(me) el.autoplay=true;
+    const src=document.createElement("source");src.src=url;src.type=mime;el.appendChild(src);
+  }else{
+    el=document.createElement("a");Object.assign(el,{href:url,target:"_blank",className:"underline",textContent:url.split("/").pop()});
+  }
+  el.addEventListener("error",()=>appendSys("⚠️ 媒體載入失敗，請稍後再試"));
+  if(!me){const n=document.createElement("span");n.textContent=sender;n.className="text-indigo-300 mr-1";wrap.appendChild(n);}
+  wrap.appendChild(el); chatEl.appendChild(wrap); chatEl.scrollTop=chatEl.scrollHeight;
+  if(!me&&fromSrv) dingEl.play().catch(()=>{});}
+function renderUsers(list){userListEl.innerHTML="";list.forEach(n=>{const li=document.createElement("li");li.textContent=n;userListEl.appendChild(li);});}
 
-/* ========= Settings ========= */
-function openSettings(){ settings.classList.remove("hidden"); bgVol.value=bgm.volume*100; dingVol.value=ding.volume*100;}
-function closeSettings(){ settings.classList.add("hidden"); }
-function setBg(img){ document.body.style.backgroundImage=`url(${img})`; }
-function setBgFile(f){ if(!f)return; const url=URL.createObjectURL(f); setBg(url); }
-
+/* ---------- Settings ---------- */
+function openSettings(){settings.classList.remove("hidden");bgVol.value=bgm.volume*100;dingVol.value=ding.volume*100;}
+function closeSettings(){settings.classList.add("hidden");}
+function setBg(img){document.body.style.backgroundImage=`url(${img})`;}
+function setBgFile(f){if(!f)return;setBg(URL.createObjectURL(f));}
 </script>
 </body>
 </html>
