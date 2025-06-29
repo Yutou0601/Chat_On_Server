@@ -9,7 +9,7 @@ use axum::{
     routing::get,
     Router,
 };
-use futures_util::stream::{StreamExt, TryStreamExt};    // try_next / recv
+use futures_util::stream::TryStreamExt;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::SqlitePool;                                  // ← 取 username 會用到
