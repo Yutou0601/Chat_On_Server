@@ -4,14 +4,15 @@ version = "0.1.1"
 edition = "2021"
 
 [dependencies]
+# ───── 核心 ────────────────────────────────
 tokio          = { version = "1.37", features = ["full"] }
-
-# ★ 保證只有 0.7 版
 axum           = { version = "0.7",  features = ["ws", "multipart"] }
-axum-extra     = { version = "0.10", features = ["multipart"] }   # 0.10 對應 axum 0.7
+axum-extra     = { version = "0.10", features = ["multipart"] }
 
-tower-http     = { version = "0.5",  features = ["fs", "limit"] }
+# ───── 中介層 / 靜態檔 & Body 限制 ────────
+tower-http     = { version = "0.6",  features = ["fs", "limit"] }
 
+# ───── 其餘工具 ───────────────────────────
 serde          = { version = "1", features = ["derive"] }
 serde_json     = "1"
 jsonwebtoken   = "9"
@@ -26,5 +27,5 @@ mime_guess     = "2"
 bytes          = "1"
 futures-util   = "0.3"
 anyhow         = "1"
-thiserror = "1"     # ← 派生錯誤型別
-nanoid    = "0.4"   # ← 產生 16 位鹽值
+thiserror      = "1"
+nanoid         = "0.4"

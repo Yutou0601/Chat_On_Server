@@ -1,0 +1,47 @@
+<!DOCTYPE html><html lang="zh-Hant"><head>
+<meta charset="UTF-8">
+<title>登入 · Rust Chat</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/app.css">
+</head><body class="login flex flex-col items-center pt-20 text-white">
+
+<div class="w-80 space-y-3 bg-white/10 rounded-xl p-6 shadow-lg">
+  <h2 class="text-center text-2xl font-bold mb-2">登入聊天室</h2>
+
+  <input id="user" class="w-full p-2 rounded bg-white/80 text-gray-900" placeholder="使用者名稱">
+  <input id="pass" type="password" class="w-full p-2 rounded bg-white/80 text-gray-900" placeholder="密碼">
+
+  <select id="room" class="w-full p-2 rounded bg-white/80 text-gray-900">
+    <option value="lobby">lobby</option>
+    <option value="tech">tech</option>
+    <option value="random">random</option>
+    <option value="gpt4o">gpt-4o 🤖</option>
+  </select>
+
+  <button id="loginBtn" class="w-full py-2 rounded bg-emerald-600 hover:bg-emerald-700">登入</button>
+
+  <p class="text-xs text-center mt-2">
+    沒有帳號？<a href="/register.html" class="underline">立即註冊</a>
+  </p>
+</div>
+
+<audio id="bgm" src="/bgm.mp3" preload="auto" loop></audio>
+
+<script type="module">
+import {api,toast} from "/js/helper.js";
+
+loginBtn.onclick = async ()=>{
+  if(!user.value||!pass.value) return toast("請填帳密");
+  try{
+    const {token}=await api("/api/login",{username:user.value,password:pass.value});
+    sessionStorage.setItem("token",token);
+    sessionStorage.setItem("username",user.value);
+    sessionStorage.setItem("room",room.value);
+    location.href="/chat.html";
+  }catch{ toast("❌ 帳密錯誤"); }
+};
+
+document.addEventListener("click",()=>{bgm.volume=.3;bgm.play().catch(()=>{})},{once:true});
+</script>
+</body></html>

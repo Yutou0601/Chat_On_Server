@@ -1,5 +1,6 @@
 use axum::{routing::post, Router, Extension, Json, extract::multipart::Multipart};
 use tokio::{fs::{self, File}, io::AsyncWriteExt};
+use futures_util::stream::StreamExt;
 use bytes::Bytes;
 use serde_json::json;
 use crate::{
@@ -19,13 +20,15 @@ pub async fn upload_file(
         return Err(bad("no file"));
     };
 
-    let mime = field.content_type().unwrap_or("application/octet-stream");
-    let ext  = if mime.starts_with("audio/webm") {
-        "weba"
-    } else {
-        mime_guess::get_mime_extensions_str(mime)
-            .and_then(|a| a.first().copied()).unwrap_or("bin")
-    };
+    // ---- MIME 先複製成 String，避免 borrow 衝突 ----
+    let mime: String = field
+        .content_type()
+        .map(|s| s.to_owned())          // to_owned 解除 &str 借用
+        .unwrap_or_else(|| "application/octet-stream".into());
+        
+    let ext = mime_guess::get_mime_extensions_str(&mime) // 改成 &mime
+        .and_then(|arr| arr.first().copied())
+        .unwrap_or("bin");
 
     let fname = format!("uploads/{}.{}", uuid::Uuid::new_v4(), ext);
     let full = {

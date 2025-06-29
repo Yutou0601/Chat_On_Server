@@ -1,0 +1,38 @@
+<!DOCTYPE html><html lang="zh-Hant"><head>
+<meta charset="UTF-8">
+<title>註冊 · Rust Chat</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/app.css">
+</head><body class="register flex flex-col items-center pt-20 text-white">
+
+<div class="w-80 space-y-3 bg-white/10 rounded-xl p-6 shadow-lg">
+  <h2 class="text-center text-2xl font-bold mb-2">建立帳號</h2>
+
+  <input id="user" class="w-full p-2 rounded bg-white/80 text-gray-900" placeholder="使用者名稱">
+  <input id="pass" type="password" class="w-full p-2 rounded bg-white/80 text-gray-900" placeholder="密碼">
+
+  <button id="regBtn" class="w-full py-2 rounded bg-sky-600 hover:bg-sky-700">註冊</button>
+
+  <p class="text-xs text-center mt-2">
+    已有帳號？<a href="/login.html" class="underline">點此登入</a>
+  </p>
+</div>
+
+<audio id="bgm" src="/bgm.mp3" preload="auto" loop></audio>
+
+<script type="module">
+import {api,toast} from "/js/helper.js";
+
+regBtn.onclick = async ()=>{
+  if(!user.value||!pass.value) return toast("請填帳密");
+  try{
+    await api("/api/register",{username:user.value,password:pass.value},false);
+    toast("✅ 註冊成功，請登入");
+    location.href="/login.html";
+  }catch{ toast("❌ 註冊失敗"); }
+};
+
+document.addEventListener("click",()=>{bgm.volume=.3;bgm.play().catch(()=>{})},{once:true});
+</script>
+</body></html>

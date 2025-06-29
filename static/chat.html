@@ -1,0 +1,196 @@
+<!DOCTYPE html><html lang="zh-Hant"><head>
+<meta charset="UTF-8">
+<title>聊天 · Rust Chat</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/app.css">
+</head><body class="chat flex h-screen text-white">
+
+<!-- 音效 -->
+<audio id="bgm"  src="/bgm.mp3"  preload="auto" loop></audio>
+<audio id="ding" src="/mes.wav"  preload="auto"></audio>
+
+<!-- 側欄（手機可折疊） -->
+<button id="toggleBar" class="absolute top-3 left-3 md:hidden text-2xl z-10">☰</button>
+<aside id="sidebar" class="fixed md:relative -translate-x-full md:translate-x-0 transition-transform
+       w-52 h-full bg-black/60 backdrop-blur p-4 space-y-4 overflow-y-auto">
+  <h3 class="font-semibold mb-2">Rooms</h3>
+  <nav id="roomNav" class="flex flex-col space-y-1"></nav>
+</aside>
+
+<!-- 主區 -->
+<div class="flex-1 flex flex-col items-center pt-6 md:pt-10 px-4 md:ml-52">
+
+  <h2 class="text-xl font-bold mb-2">Room: <span id="roomName"></span></h2>
+
+  <div id="chat" class="w-full max-w-2xl flex-1 overflow-y-auto bg-black/30 rounded-lg p-3 space-y-1 text-sm"></div>
+
+  <!-- 送出列 -->
+  <div class="w-full max-w-2xl flex items-center space-x-2 mt-3 mb-6">
+
+    <!-- 📎 -->
+    <input id="file" type="file" hidden accept="image/*,video/*,audio/*">
+    <label for="file" class="cursor-pointer text-2xl select-none">📎</label>
+
+    <!-- 🎤 -->
+    <button id="recBtn" class="text-2xl select-none">🎤</button>
+    <div id="recInfo" class="flex items-center space-x-1 invisible">
+      <span class="rec-dot animate-pulse"></span>
+      <span id="recTime" class="text-xs tabular-nums">00:00</span>
+    </div>
+
+    <!-- 文字 -->
+    <input id="msg" class="flex-1 p-2 rounded bg-white/90 text-gray-900"
+           placeholder="輸入訊息後 Enter 或 Send">
+    <button id="sendBtn" class="px-4 rounded bg-green-600 hover:bg-green-700">Send</button>
+  </div>
+</div>
+
+<script type="module">
+import {api,toast} from "/js/helper.js";
+
+/* ---------- 基本資料 ---------- */
+const token = sessionStorage.getItem("token");
+const myName= sessionStorage.getItem("username")||"anon";
+let   room  = sessionStorage.getItem("room")   ||"lobby";
+const wsBase=`${location.protocol==="https:"?"wss":"ws"}://${location.host}/ws/chat`;
+let   ws=null;
+if(!token){ location.href="/login.html"; }
+
+/* ---------- UI 綁定 ---------- */
+sendBtn.onclick = sendTxt;
+msg.onkeydown   = e=>{if(e.key==="Enter")sendTxt();};
+file.onchange   = ()=> sendFile(file.files[0]);
+recBtn.onclick  = toggleRec;
+toggleBar.onclick=()=>sidebar.classList.toggle("-translate-x-full");
+
+/* 房間按鈕 */
+["lobby","tech","random","gpt4o"].forEach(r=>{
+  const b=document.createElement("button");
+  b.textContent = r==="gpt4o"?"gpt-4o 🤖":`# ${r}`;
+  b.className   = "text-left px-2 py-1 rounded hover:bg-white/20";
+  b.onclick     = ()=>switchRoom(r);
+  roomNav.appendChild(b);
+});
+
+/* ---------- 起始 ---------- */
+switchRoom(room);
+
+/* ---------- 房間切換 ---------- */
+function switchRoom(r){
+  room=r; roomName.textContent=r;
+  [...roomNav.children].forEach(b=>b.classList.toggle("bg-white/20",b.textContent.includes(r)));
+  chat.innerHTML="";
+  if(ws){ws.close();ws=null;}
+
+  if(r==="gpt4o"){ appendSys("已進入 GPT-4o 房，可直接對話"); return; }
+
+  ws=new WebSocket(`${wsBase}?room=${r}&token=${token}`);
+  ws.onopen  =()=>appendSys("已連線");
+  ws.onclose =()=>appendSys("連線中斷");
+  ws.onmessage=ev=>{
+    let d;try{d=JSON.parse(ev.data);}catch{return;}
+    if(d.type==="text") appendChat(d.name,d.text,true);
+    else if(d.type==="media") appendMedia(d.name,d.url,d.mime,true);
+  };
+}
+
+/* ---------- 文字 ---------- */
+function sendTxt(){
+  const t=msg.value.trim(); if(!t) return;
+  if(room==="gpt4o"){
+    appendChat(myName,t,false); msg.value="";
+    api("/api/gpt4o",{prompt:t}).then(r=>appendChat("GPT-4o",r.answer,true))
+                               .catch(()=>toast("GPT-4o 失敗"));
+    return;
+  }
+  ws?.send(JSON.stringify({type:"text",text:t}));
+  msg.value="";
+}
+
+/* ---------- 上傳 ---------- */
+async function sendFile(file){
+  if(!file) return;
+  if(file.size>100*1024**2) return toast("檔案超過 100 MB");
+  const fd=new FormData(); fd.append("file",file);
+  try{
+    const {url,mime}=await fetch("/api/upload",{method:"POST",body:fd}).then(r=>r.json());
+    ws?.send(JSON.stringify({type:"media",url,mime}));
+  }catch{ toast("上傳失敗"); }
+}
+
+/* ---------- 錄音 ---------- */
+let rec=null,recStart=0,recTimer=null;
+const MAX_SEC=120,MAX_SIZE=10*1024**2;
+async function toggleRec(){ rec? stopRec(): startRec(); }
+
+async function startRec(){
+  let stream; try{stream=await navigator.mediaDevices.getUserMedia({audio:true});}
+  catch{return toast("無麥克風權限");}
+  rec=new MediaRecorder(stream,{mimeType:"audio/webm"});
+  const chunks=[];
+  rec.ondataavailable=e=>chunks.push(e.data);
+  rec.start();
+
+  recInfo.classList.replace("invisible","visible");
+  recStart=Date.now(); recTimer=setInterval(tick,1000); tick();
+  recBtn.textContent="■";
+
+  rec.onstop=async ()=>{
+    clearInterval(recTimer);
+    recInfo.classList.replace("visible","invisible");
+    recBtn.textContent="🎤";
+    const blob=new Blob(chunks,{type:"audio/webm"});
+    if(blob.size===0) return appendSys("⚠️ 錄音失敗");
+    if(blob.size>MAX_SIZE) return toast("錄音超過 10 MB");
+    await sendFile(new File([blob],"rec.weba",{type:"audio/webm"}));
+    rec=null;
+  };
+}
+function stopRec(){ rec?.stop(); }
+function tick(){
+  const s=Math.floor((Date.now()-recStart)/1000);
+  recTime.textContent=`${String(s/60|0).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  if(s>=MAX_SEC) stopRec();
+}
+
+/* ---------- UI helper ---------- */
+function appendSys(t){
+  const d=document.createElement("div");
+  d.className="text-center text-gray-400"; d.textContent="*** "+t;
+  chat.appendChild(d); chat.scrollTop=chat.scrollHeight;
+}
+function appendChat(sender,text,fromSrv){
+  const d=document.createElement("div"),me=sender===myName;
+  d.className=me?"text-right":"text-left";
+  d.innerHTML= me
+    ? `<span class="inline-block bg-green-500 text-white rounded-lg px-2 py-1 max-w-[70%] break-words">${text}</span>`
+    : `<span class="text-indigo-300 mr-1">${sender}</span><span class="inline-block bg-indigo-500/30 backdrop-blur-sm rounded-lg px-2 py-1 max-w-[70%] break-words">${text}</span>`;
+  chat.appendChild(d); chat.scrollTop=chat.scrollHeight;
+  if(!me&&fromSrv) ding.play().catch(()=>{});
+}
+function appendMedia(sender,url,mime,fromSrv){
+  const me=sender===myName,wrap=document.createElement("div");
+  wrap.className=me?"text-right":"text-left";
+  let el;
+  if(mime.startsWith("image/")){
+    el=new Image();el.src=url;el.loading="lazy";el.className="max-w-[70%] rounded-lg inline-block";
+  }else if(mime.startsWith("video/")){
+    el=document.createElement("video");Object.assign(el,{src:url,controls:true,preload:"metadata",className:"max-w-[70%] rounded-lg"});
+  }else if(mime.startsWith("audio/")){
+    el=document.createElement("audio");el.controls=true;el.preload="metadata";
+    if(me) el.autoplay=true;
+    const src=document.createElement("source");src.src=url;src.type=mime;el.appendChild(src);
+  }else{
+    el=document.createElement("a");Object.assign(el,{href:url,target:"_blank",className:"underline",textContent:url.split("/").pop()});
+  }
+  el.addEventListener("error",()=>appendSys("⚠️ 媒體載入失敗"));
+  if(!me){const n=document.createElement("span");n.textContent=sender;n.className="text-indigo-300 mr-1";wrap.appendChild(n);}
+  wrap.appendChild(el);chat.appendChild(wrap);chat.scrollTop=chat.scrollHeight;
+  if(!me&&fromSrv) ding.play().catch(()=>{});
+}
+
+/* BGM 觸發 */
+document.addEventListener("click",()=>{bgm.volume=.3;bgm.play().catch(()=>{})},{once:true});
+</script>
+</body></html>
